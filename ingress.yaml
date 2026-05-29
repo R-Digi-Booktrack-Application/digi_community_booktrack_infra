@@ -1,0 +1,78 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tracking-app-ingress
+  namespace: tracking-app
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    alb.ingress.kubernetes.io/group.name: tracking-app
+    alb.ingress.kubernetes.io/healthcheck-path: /
+    alb.ingress.kubernetes.io/success-codes: "200-399"
+
+spec:
+  ingressClassName: alb
+  rules:
+
+    # MAIN DOMAIN
+    - host: softwarestack.xyz
+      http:
+        paths:
+
+          # Customer Frontend
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: customer-frontend
+                port:
+                  number: 80
+
+          # Auth API
+          - path: /auth
+            pathType: Prefix
+            backend:
+              service:
+                name: auth-service
+                port:
+                  number: 8001
+
+          # Product API
+          - path: /products
+            pathType: Prefix
+            backend:
+              service:
+                name: product-service
+                port:
+                  number: 8002
+
+          # Order API
+          - path: /order
+            pathType: Prefix
+            backend:
+              service:
+                name: order-service
+                port:
+                  number: 8003
+
+          # Tracking API
+          - path: /tracking
+            pathType: Prefix
+            backend:
+              service:
+                name: tracking-service
+                port:
+                  number: 8004
+
+    # ADMIN DOMAIN
+    - host: admin.softwarestack.xyz
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: admin-frontend
+                port:
+                  number: 80
