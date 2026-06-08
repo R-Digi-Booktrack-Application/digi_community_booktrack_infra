@@ -16,7 +16,7 @@ spec:
   rules:
 
     # MAIN DOMAIN
-    - host: softwarestack.xyz
+    - host: revsales.xyz
       http:
         paths:
 
@@ -66,7 +66,7 @@ spec:
                   number: 8004
 
     # ADMIN DOMAIN
-    - host: admin.softwarestack.xyz
+    - host: admin.revsales.xyz
       http:
         paths:
           - path: /
