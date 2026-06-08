@@ -1,0 +1,101 @@
+name: Terraform EKS CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: write    
+
+jobs:
+
+  #########################################
+  # VERSIONING JOB
+  #########################################
+
+  versioning:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Read & Increment Version
+        id: bump
+        run: |
+          FILE="version.txt"
+
+          if [ ! -f $FILE ]; then
+            echo "v1.0.0" > $FILE
+          fi
+
+          VERSION=$(cat $FILE)
+
+          echo "Current version: $VERSION"
+
+          MAJOR=$(echo $VERSION | cut -d. -f1 | tr -d 'v')
+          MINOR=$(echo $VERSION | cut -d. -f2)
+          PATCH=$(echo $VERSION | cut -d. -f3)
+
+          # CHANGE LOGIC HERE
+          # patch bump (default)
+          PATCH=$((PATCH+1))
+
+          NEW_VERSION="v$MAJOR.$MINOR.$PATCH"
+
+          echo "New version: $NEW_VERSION"
+
+          echo $NEW_VERSION > $FILE
+
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Commit Updated Version
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add version.txt
+          git commit -m "Auto bump version to ${{ steps.bump.outputs.version }}"
+          git push
+
+  #########################################
+  # TERRAFORM DEPLOY
+  #########################################
+
+  deploy:
+    needs: versioning
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-east-1
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        working-directory: pillars/dev
+        run: terraform init -upgrade
+
+      - name: Terraform Plan
+        working-directory: pillars/dev
+        run: |
+          CLEAN_VERSION=$(echo "${{ needs.versioning.outputs.version }}" | sed 's/^v//' | tr '.' '-')
+          terraform plan \
+            -var="app_version=$CLEAN_VERSION"
+      
+      - name: Terraform Apply
+        working-directory: pillars/dev
+        run: |
+          CLEAN_VERSION=$(echo "${{ needs.versioning.outputs.version }}" | sed 's/^v//' | tr '.' '-')
+          terraform apply -auto-approve \
+            -var="app_version=$CLEAN_VERSION"
